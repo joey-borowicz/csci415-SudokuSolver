@@ -1,5 +1,5 @@
 //  RunPuzzle.cpp
-//  
+//
 //
 //  Created by Joey Borowicz on 4/18/17.
 //
@@ -13,29 +13,29 @@
 #include <math.h>
 #include <time.h>
 #include <iostream>
+#include <cstdio>
+#include <ctime>
 #include "Puzzles.h"
 using namespace std;
 
 
-
+//'square' goes through each value in the square until each cell has a non-zero value
 bool square(int row, int column, int* puzzle, int counter, int startValue);
 
 bool valid(int row, int column, int value, int* puzzle);
 
 void solve(int* puzzle);
 
-
+void display(int* puzzle);
 
 
 bool square(int row, int column, int* puzzle, int counter, int startValue)
-
 {
 
-    if(counter == 81) //went through whole puzzle 
+    if(counter == 81) //went through whole puzzle
     {
-        return true; 
+        return true;
     }
-
 
     //loop of column and rows
     if(++column == 9)
@@ -47,49 +47,38 @@ bool square(int row, int column, int* puzzle, int counter, int startValue)
         }
     }
 
-
-	//skip solved squares
-    
-    if(puzzle[row + column * 9] != 0)
+    //skip solved squares
+    if(puzzle[column + row * 9] != 0)
     {
         return square(row, column, puzzle, counter+1, startValue);
     }
 
-
-
-    //if the cell is empty
-    
-    for(int val = 1; val <= 9; val++)
+    for(int i = 1; i <= 9; i++)
     {
-
-        if(++startValue == 10)
+        if(++startValue == 10)//This should work to for setting start value at one if cell is 0
         {
             startValue = 1;
         }
 
-
-        //check if the value is valid
-
+        //check if the value is valid using our function
         if(valid(row, column, startValue, puzzle))
         {
-            puzzle[row + column * 9] = startValue; 
+            puzzle[column + row * 9] = startValue;
 
-
-            if(square(row, column, puzzle, counter+1, startValue)) 
+            if(square(row, column, puzzle, counter+1, startValue))
             {
                 return true;
             }
         }
     }
-    puzzle[row + column * 9] = 0; //set to zero 
-
+    puzzle[column + row * 9] = 0; //set to zero
+    //will require backtracking
     return false;
 }
 
 bool valid(int row, int column, int value, int* puzzle)
-
 {
-    int i; //loop vairable
+    int i;
 
     for(i = 0; i < 9; i++)
     {
@@ -101,7 +90,7 @@ bool valid(int row, int column, int value, int* puzzle)
         {
             return false;
         }
-        else if(puzzle[(row/3*3+i%3) * 9 + (column/3*3+i/3) ] == value) //check the section 
+        else if(puzzle[(row/3*3+i%3) * 9 + (column/3*3+i/3) ] == value) //check the subsection 
         {
             return false;
         }
@@ -109,10 +98,8 @@ bool valid(int row, int column, int value, int* puzzle)
       return true; //valid value
 }
 
-
-
-void solve (int* puzzle) {
-
+void solve(int* puzzle)
+{
     int r = rand() % 8; //random row
     int c = rand() % 8; //random column
 
@@ -128,6 +115,31 @@ void solve (int* puzzle) {
     }
 }
 
+void display(int* puzzle)
+{
+for (int h = 0; h < 81; h++)
+{
+ if (h % 27 == 0)
+	{
+		cout << "\n-------------------------";
+  	}
+ if (h % 9 == 0)
+  	{
+  		cout << "\n";
+		cout << "| "; 
+	}
+ cout << puzzle[h];
+ cout << " "; 
+ if (h % 3 == 2)
+	{
+  		cout << "| ";
+	}
+}
+cout << "\n";
+cout << "-------------------------";
+cout << "\n";
+}
+
 int main()
 {
 	Puzzles p;
@@ -137,7 +149,12 @@ int main()
 	{
 		puzzle[i] = p.puzzleOne[i];
 	}
-
+	std::clock_t start;
+	double totalTime;
+	start = clock();
 	solve(puzzle);
+	display(puzzle);
+	totalTime = (clock() - start) / (double) CLOCKS_PER_SEC;
+	cout << "\nTime: " << totalTime << " seconds\n";
 }
 
