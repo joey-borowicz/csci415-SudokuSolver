@@ -58,6 +58,10 @@ __device__ bool square(int row, int column, int* puzzle, int counter, int startV
     }
     puzzle[column + row * 9] = 0; //set to zero
     //will require backtracking
+	
+	
+	
+	
     return false;
 }
 
@@ -83,27 +87,28 @@ __device__ bool valid(int row, int column, int value, int* puzzle)
       return true; //valid value
 }
 
-__global__ bool sudoku_parallel(int *puzzle, int *output)
+//Implementing the parallel valid method
+__global__ bool valid_parallel(int *puzzle,int value, int *output)
 {
 	int r = threadIdx.x  //row id
 	int c = threadIdx.y  //column id 
 	int s = blockIdx.x * blockDum.x + threadIdx.x  //setting the start value using the idea from assignment1
 	
 
-	//Implementing the parallel code
-		if(puzzle[row * 9 + s] == value) //rows
-        	{
-            		return false;
-        	}
-        	else if(puzzle[column + s * 9] == value) //columns
-        	{
-            		return false;
-        	}
-        	else if(puzzle[(row/3*3+s%3) * 9 + (column/3*3+s/3) ] == value) //check the subsection 
-        	{
-            		return false;
-        	}
-		return true;
+	
+	if(puzzle[r * 9 + s] == value) //rows
+        {
+            	return false;
+        }
+        else if(puzzle[c + s * 9] == value) //columns
+        {
+            	return false;
+        }
+        else if(puzzle[(r/3*3+s%3) * 9 + (c/3*3+s/3) ] == value) //check the subsection 
+        {
+            	return false;
+        }
+	return true;
 
 }
 
@@ -155,3 +160,54 @@ long long stop_timer(long long start_time, std::string name) {
 
 
 //TODO: Memory allocation and the other cuda specific memory operations. Need to look closer at some other resources.
+
+int main()
+{
+	//CPU Implementation
+	Puzzles p;
+	int* puzzle = (int*)malloc(81*sizeof(int));
+	
+	//Initializing data on CPU
+	int i;
+	for(i = 0; i < 81; i++)
+	{
+		puzzle[i] = p.puzzleOne[i];
+	}
+	
+	//Execute and time: CPU version
+	std::clock_t CPU_start;
+	double CPU_totalTime;
+	CPU_start = clock();
+	solve(puzzle);
+	display(puzzle);
+	CPU_totalTime = (clock() - CPU_start) / (double) CLOCKS_PER_SEC;
+	cout << "\nTime: " << CPU_totalTime << " seconds\n";
+	
+	
+	//GPU Implementation
+	std::clock_t GPU_start;
+	double GPU_totalTime;
+	GPU_start = clock();
+	parallel_solve(puzzle);
+	display(puzzle);
+	GPU_totalTime = (clock() - GPU_start) / (double) CLOCKS_PER_SEC;
+	cout << "\nTime: " << GPU_totalTime << " seconds\n";
+	
+
+  	int* h_gpu_puzzle = (int*)malloc(bytes); //Allocating memory
+	
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
