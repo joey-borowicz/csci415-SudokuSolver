@@ -68,6 +68,8 @@ __device__ bool square(int row, int column, int* puzzle, int counter, int startV
 	
 	
 	
+	
+	
     return false;
 }
 
@@ -188,6 +190,7 @@ long long stop_timer(long long start_time, std::string name) {
 
 int main()
 {
+	
 	//CPU Implementation
 	Puzzles p;
 	int* h_puzzle = (int*)malloc(81*sizeof(int));
@@ -207,8 +210,6 @@ int main()
 	display(h_puzzle);
 	CPU_totalTime = (clock() - CPU_start) / (double) CLOCKS_PER_SEC;
 	cout << "\nTime: " << CPU_totalTime << " seconds\n";
-	
-	
 	
 	
 	//GPU Implementation
@@ -241,6 +242,34 @@ int main()
   	long long GPU_hcopyStart = start_timer();
   	cudaMemcpy(h_gpu_result, d_output, bytes, cudaMemcpyDeviceToHost);
   	long long GPU_hcopyTime = stop_timer(GPU_hcopyStart, "Copying GPU Memory to Host");
+	
+	//Free GPU memory
+ 	cudaFree(d_puzzle);
+	
+	// End GPU timer
+  	long long GPU_totalTime = stop_timer(GPU_startTotal, "Total GPU Run Time");
+	
+	/*
+	// Checking to make sure the CPU and GPU results match - Do not modify
+  	int errorCount = 0;
+  	for (i=0; i<N; i++)
+  	{
+   		 if (abs(h_cpu_result[i]-h_gpu_result[i]) > 1e-6)
+      		 errorCount = errorCount + 1;
+  	}
+  	if (errorCount > 0)
+   	printf("Result comparison failed.\n");
+  	else
+    	printf("Result comparison passed.\n");
+	*/
+	
+	
+	 // Cleaning up memory
+  	free(h_puzzle);
+  	//free(h_cpu_result);
+  	//free(h_gpu_result);
+  	return 0;
+	
 	
 	/*//calculating time taken 
 	std::clock_t GPU_start;
