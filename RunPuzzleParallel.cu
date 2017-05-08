@@ -13,6 +13,12 @@
 #include "Puzzles.h"
 using namespace std;
 
+
+
+// problem size (vector length) N
+static const int N = 12345678;
+
+
 //Note: the first part of this program is essentially copied from the serial version
 
 __device__ bool square(int row, int column, int* puzzle, int counter, int startValue)
@@ -87,8 +93,27 @@ __device__ bool valid(int row, int column, int value, int* puzzle)
       return true; //valid value
 }
 
-//Implementing the parallel valid method
-__global__ bool valid_parallel(int *puzzle,int value, int *output)
+//Implementing the parallel solve method
+__global__ void solve_parallel(int* puzzle)
+{
+   	int r = threadIdx.x  //row id
+	int c = threadIdx.y  //column id 
+ 	int s = blockIdx.x * blockDum.x + threadIdx.x  //setting the start value
+		
+	if(square(r,c,puzzle,0, s)) 
+     	{
+        	cout << "Puzzle Solved\n";
+    	}
+    	else 
+    	{
+       	 	cout << "Puzzle Not Solved\n";
+    	}
+		
+}
+
+
+
+/*__global__ bool valid_parallel(int *puzzle,int value, int *output)
 {
 	int r = threadIdx.x  //row id
 	int c = threadIdx.y  //column id 
@@ -110,7 +135,7 @@ __global__ bool valid_parallel(int *puzzle,int value, int *output)
         }
 	return true;
 
-}
+}*/
 
 
 __device__ void display(int* puzzle)
@@ -165,36 +190,69 @@ int main()
 {
 	//CPU Implementation
 	Puzzles p;
-	int* puzzle = (int*)malloc(81*sizeof(int));
+	int* h_puzzle = (int*)malloc(81*sizeof(int));
 	
 	//Initializing data on CPU
 	int i;
 	for(i = 0; i < 81; i++)
 	{
-		puzzle[i] = p.puzzleOne[i];
+		h_puzzle[i] = p.puzzleOne[i];
 	}
 	
 	//Execute and time: CPU version
 	std::clock_t CPU_start;
 	double CPU_totalTime;
 	CPU_start = clock();
-	solve(puzzle);
-	display(puzzle);
+	solve(h_puzzle);
+	display(h_puzzle);
 	CPU_totalTime = (clock() - CPU_start) / (double) CLOCKS_PER_SEC;
 	cout << "\nTime: " << CPU_totalTime << " seconds\n";
 	
 	
+	
+	
 	//GPU Implementation
+	
+	//not sure if this is required
+	const int sizeOfBlock = 1024;
+  	const int sizeOfGrid = N/1024 + 1; 
+  	const float bytes = 81*sizeof(int);
+	long long GPU_startTotal = start_timer(); //GPU start time
+	
+	//Allocating memory to GPU and timing it
+	long long GPU_allocateStart = start_timer();
+	int* d_puzzle = (int*)malloc(81*sizeof(int)); 
+	cudaMalloc((void**) &d_input, bytes); 
+	long long GPU_allocateTime = stop_timer(GPU_allocateStart, "\nGPU Memory Allocation");
+	
+	
+	long long GPU_dcopyStart = start_timer();
+	cudaMemcpy(d_puzzle, h_puzzle, 81*sizeof(int), cudaMemcpyHostToDevice);
+	long long GPU_dcopyTime = stop_timer(GPU_dcopyStart, "Copying GPU Memory to Device"); 
+	
+	
+	long long GPU_kernelStart = start_timer();
+	solve_parallel<<<sizeOfGrid, sizeOfBlock>>>(d_puzzle);
+	display<<<sizeOfGrid, sizeOfBlock>>>(h_puzzle);
+	long long GPU_kernelTime = stop_timer(GPU_kernelStart, "GPU Kernel Run Time");
+	
+	
+	//Copying the output to the host
+  	long long GPU_hcopyStart = start_timer();
+  	cudaMemcpy(h_gpu_result, d_output, bytes, cudaMemcpyDeviceToHost);
+  	long long GPU_hcopyTime = stop_timer(GPU_hcopyStart, "Copying GPU Memory to Host");
+	
+	/*//calculating time taken 
 	std::clock_t GPU_start;
 	double GPU_totalTime;
 	GPU_start = clock();
 	parallel_solve(puzzle);
 	display(puzzle);
 	GPU_totalTime = (clock() - GPU_start) / (double) CLOCKS_PER_SEC;
-	cout << "\nTime: " << GPU_totalTime << " seconds\n";
+	cout << "\nTime: " << GPU_totalTime << " seconds\n";*/
 	
 
-  	int* h_gpu_puzzle = (int*)malloc(bytes); //Allocating memory
+  	
 	
 }
 
