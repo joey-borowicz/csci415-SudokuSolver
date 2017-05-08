@@ -83,17 +83,27 @@ __device__ bool valid(int row, int column, int value, int* puzzle)
       return true; //valid value
 }
 
-__global__ void sudoku_parallel(int *puzzle, int *output)
+__global__ bool sudoku_parallel(int *puzzle, int *output)
 {
 	int r = threadIdx.x  //row id
 	int c = threadIdx.y  //column id 
 	int s = blockIdx.x * blockDum.x + threadIdx.x  //setting the start value using the idea from assignment1
 	
 
-	//TODO: finish parallel function - will be similar(ish) to serial
-
-
-
+	//Implementing the parallel code
+		if(puzzle[row * 9 + s] == value) //rows
+        	{
+            		return false;
+        	}
+        	else if(puzzle[column + s * 9] == value) //columns
+        	{
+            		return false;
+        	}
+        	else if(puzzle[(row/3*3+s%3) * 9 + (column/3*3+s/3) ] == value) //check the subsection 
+        	{
+            		return false;
+        	}
+		return true;
 
 }
 
