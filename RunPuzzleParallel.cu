@@ -107,11 +107,6 @@ __global__ void solve_parallel(int* puzzle, int* output)
         	resultIndicator = 1;
 		(*output) = resultIndicator;
     	}
-    	else 
-    	{
-       	 	resultIndicator = 0;
-		(*output) = resultIndicator;
-    	}
 		
 }
 
@@ -192,17 +187,9 @@ int main()
 {
 	
 	//CPU Implementation
-	int original[81] = {0,2,0,6,0,8,0,0,0,
-                     5,8,0,0,0,9,7,0,0,
-                     0,0,0,0,4,0,0,0,0,
-                     3,7,0,0,0,0,5,0,0,
-                     6,0,0,0,0,0,0,0,4,
-                     0,0,8,0,0,0,0,1,3,
-                     0,0,0,0,2,0,0,0,0,
-                     0,0,9,8,0,0,0,3,6,
-                     0,0,0,3,0,6,0,9,0}; //taken from Puzzles.h since that format won't work here
-	
-	int originalTwo[81] = {1,0,0,4,0,0,2,0,9,
+
+	 //taken from Puzzles.h since that format won't work here
+	int original[81] = {1,0,0,4,0,0,2,0,9,
 				0,0,7,0,0,0,0,0,0,
 				5,8,9,0,0,0,1,0,0,
 				0,0,0,0,0,0,3,9,0,
@@ -217,7 +204,7 @@ int main()
 	int i;
 	for(i = 0; i < 81; i++)
 	{
-		puzzle[i] = originalTwo[i];
+		puzzle[i] = original[i];
 	}
 	
 	//int* test = (int*)malloc(81*sizeof(int));
