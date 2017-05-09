@@ -10,16 +10,33 @@
 #include <iostream>
 #include <string>
 #include <sys/time.h>
-#include "Puzzles.h"
+
 using namespace std;
 
-
-
-// problem size (vector length) N
-static const int N = 12345678;
-
-
 //Note: the first part of this program is essentially copied from the serial version
+
+//I moved this to the top because of an error I was getting
+__device__ bool valid(int row, int column, int value, int* puzzle)
+{
+    int i;
+
+    for(i = 0; i < 9; i++)
+    {
+        if(puzzle[row * 9 + i] == value) //rows
+        {
+            return false;
+        }
+        else if(puzzle[column + i * 9] == value) //columns
+        {
+            return false;
+        }
+        else if(puzzle[(row/3*3+i%3) * 9 + (column/3*3+i/3) ] == value) //check the subs$
+        {
+            return false;
+        }
+    }
+      return true; //valid value
+}
 
 __device__ bool square(int row, int column, int* puzzle, int counter, int startValue)
 {
@@ -73,42 +90,24 @@ __device__ bool square(int row, int column, int* puzzle, int counter, int startV
     return false;
 }
 
-__device__ bool valid(int row, int column, int value, int* puzzle)
-{
-    int i;
-
-    for(i = 0; i < 9; i++)
-    {
-        if(puzzle[row * 9 + i] == value) //rows
-        {
-            return false;
-        }
-        else if(puzzle[column + i * 9] == value) //columns
-        {
-            return false;
-        }
-        else if(puzzle[(row/3*3+i%3) * 9 + (column/3*3+i/3) ] == value) //check the subsection 
-        {
-            return false;
-        }
-    }
-      return true; //valid value
-}
 
 //Implementing the parallel solve method
-__global__ void solve_parallel(int* puzzle)
+__global__ void solve_parallel(int* puzzle, int* output)
 {
-   	int r = threadIdx.x  //row id
-	int c = threadIdx.y  //column id 
- 	int s = blockIdx.x * blockDum.x + threadIdx.x  //setting the start value
-		
+   	int r = threadIdx.x;  //row id
+	int c = threadIdx.y;  //column id 
+ 	int s = blockIdx.x * blockDim.x + threadIdx.x;  //setting the start value
+	int resultIndicator;
+
 	if(square(r,c,puzzle,0, s)) 
      	{
-        	cout << "Puzzle Solved\n";
+        	resultIndicator = 1;
+		(* output) = resultIndicator;
     	}
     	else 
     	{
-       	 	cout << "Puzzle Not Solved\n";
+       	 	resultIndicator = 0;
+		(* output) = resultIndicator;
     	}
 		
 }
@@ -140,7 +139,7 @@ __global__ void solve_parallel(int* puzzle)
 }*/
 
 
-__device__ void display(int* puzzle)
+void display(int* puzzle)
 {
 for (int h = 0; h < 81; h++)
 {
@@ -192,31 +191,74 @@ int main()
 {
 	
 	//CPU Implementation
-	Puzzles p;
-	int* h_puzzle = (int*)malloc(81*sizeof(int));
+	int original[81] = {0,2,0,6,0,8,0,0,0,
+                     5,8,0,0,0,9,7,0,0,
+                     0,0,0,0,4,0,0,0,0,
+                     3,7,0,0,0,0,5,0,0,
+                     6,0,0,0,0,0,0,0,4,
+                     0,0,8,0,0,0,0,1,3,
+                     0,0,0,0,2,0,0,0,0,
+                     0,0,9,8,0,0,0,3,6,
+                     0,0,0,3,0,6,0,9,0}; //taken from Puzzles.h since that format won't work here
+	
+	int* puzzle = (int*)malloc(81*sizeof(int));
 	
 	//Initializing data on CPU
 	int i;
 	for(i = 0; i < 81; i++)
 	{
-		h_puzzle[i] = p.puzzleOne[i];
+		puzzle[i] = original[i];
 	}
 	
-	//Execute and time: CPU version
-	std::clock_t CPU_start;
-	double CPU_totalTime;
-	CPU_start = clock();
-	solve(h_puzzle);
+
+
+	//GPU implementation
+
+        int* h_puzzle = (int*)malloc(81*sizeof(int)); //h is for host vars
+	int* h_output = (int*)malloc(sizeof(int)); 
+	h_output = 0;
+	int* m_output; //m vars will deal with memory
+	int* m_puzzle;
+	
+	long long GPU_total_start = start_timer(); //taken from what I did in assignment1
+	
+	cudaMalloc((void**) &m_puzzle, 81*sizeof(int));
+	cudaMalloc((void**) &m_output, sizeof(int));
+	
+	cudaMemcpy(m_puzzle, puzzle, 81*sizeof(int), cudaMemcpyHostToDevice);
+	cudaMemcpy(m_output, h_output, sizeof(int), cudaMemcpyHostToDevice);
+	
+        // warning : Stack size for entry function '_Z14solve_parallelPiS_' cannot be statically $
+        size_t stack = 30000;
+        cudaDeviceSetLimit(cudaLimitStackSize, stack);
+	solve_parallel<<<1, 9>>>(m_puzzle, m_output); //1block, 9threads
+	cudaDeviceSynchronize();
+
+
+	cudaMemcpy(h_puzzle, m_puzzle, 81*sizeof(int), cudaMemcpyDeviceToHost);
+	cudaMemcpy(h_output, m_output, sizeof(int), cudaMemcpyDeviceToHost);
+
+	long long GPU_total_time = stop_timer(GPU_total_start, "\nTotal time: ");
+
+	if(*h_output == 1)
+	{
+		cout << "Puzzle Solved\n";
+	}
+	else if(*h_output == 0)
+	{
+		cout << "Puzzle Not Solved\n";
+	}
+	
 	display(h_puzzle);
-	CPU_totalTime = (clock() - CPU_start) / (double) CLOCKS_PER_SEC;
-	cout << "\nTime: " << CPU_totalTime << " seconds\n";
-	
-	
-	//GPU Implementation
-	
+
+	free(h_puzzle);
+	free(h_output);
+	return 0;
+}
+/*
 	//not sure if this is required
 	const int sizeOfBlock = 1024;
-  	const int sizeOfGrid = N/1024 + 1; 
+  	const int sizeOfGrid = N/1024 + 1;
   	const float bytes = 81*sizeof(int);
 	long long GPU_startTotal = start_timer(); //GPU start time
 	
@@ -248,7 +290,7 @@ int main()
 	
 	// End GPU timer
   	long long GPU_totalTime = stop_timer(GPU_startTotal, "Total GPU Run Time");
-	
+*/	
 	/*
 	// Checking to make sure the CPU and GPU results match - Do not modify
   	int errorCount = 0;
@@ -262,13 +304,7 @@ int main()
   	else
     	printf("Result comparison passed.\n");
 	*/
-	
-	
-	 // Cleaning up memory
-  	free(h_puzzle);
-  	//free(h_cpu_result);
-  	//free(h_gpu_result);
-  	return 0;
+
 	
 	
 	/*//calculating time taken 
@@ -278,16 +314,7 @@ int main()
 	parallel_solve(puzzle);
 	display(puzzle);
 	GPU_totalTime = (clock() - GPU_start) / (double) CLOCKS_PER_SEC;
-	cout << "\nTime: " << GPU_totalTime << " seconds\n";*/
-	
-
-  	
-	
-}
-
-
-
-
+	cout << "\nTime: " << GPU_totalTime << " seconds\n";*/	
 
 
 
