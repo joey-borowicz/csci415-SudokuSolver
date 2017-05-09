@@ -10,6 +10,10 @@
 #include <iostream>
 #include <string>
 #include <sys/time.h>
+#include <unistd.h>
+#include <sys/types.h>
+#include <cstdio>
+#include <iostream>
 
 using namespace std;
 
@@ -18,9 +22,7 @@ using namespace std;
 //I moved this to the top because of an error I was getting
 __device__ bool valid(int row, int column, int value, int* puzzle)
 {
-    int i;
-
-    for(i = 0; i < 9; i++)
+    for(int i = 0; i < 9; i++)
     {
         if(puzzle[row * 9 + i] == value) //rows
         {
@@ -96,18 +98,19 @@ __global__ void solve_parallel(int* puzzle, int* output)
 {
    	int r = threadIdx.x;  //row id
 	int c = threadIdx.y;  //column id 
- 	int s = blockIdx.x * blockDim.x + threadIdx.x;  //setting the start value
+ 	int s = (blockIdx.x * blockDim.x + threadIdx.x) % 9 + 1;  //setting the start value
 	int resultIndicator;
 
 	if(square(r,c,puzzle,0, s)) 
      	{
+
         	resultIndicator = 1;
-		(* output) = resultIndicator;
+		(*output) = resultIndicator;
     	}
     	else 
     	{
        	 	resultIndicator = 0;
-		(* output) = resultIndicator;
+		(*output) = resultIndicator;
     	}
 		
 }
@@ -166,24 +169,22 @@ cout << "\n";
 
 
 //this was used in both of the 2 CUDA assignments
-// Returns the current time in microseconds
 long long start_timer() {
-	struct timeval tv;
-	gettimeofday(&tv, NULL);
-	return tv.tv_sec * 1000000 + tv.tv_usec;
+        struct timeval tv;
+        gettimeofday(&tv, NULL);
+        return tv.tv_sec * 1000000 + tv.tv_usec;
 }
 
 
 // Prints the time elapsed since the specified time
 long long stop_timer(long long start_time, std::string name) {
-	struct timeval tv;
-	gettimeofday(&tv, NULL);
-	long long end_time = tv.tv_sec * 1000000 + tv.tv_usec;
-    std::cout << std::setprecision(5) << std::fixed;
-	std::cout << name << ": " << ((float) (end_time - start_time)) / (1000) << " Msec\n";
-	return end_time - start_time;
+        struct timeval tv;
+        gettimeofday(&tv, NULL);
+        long long end_time = tv.tv_sec * 1000000 + tv.tv_usec;
+        std::cout << std::setprecision(5);
+        std::cout << name << ": " << ((float) (end_time - start_time)) / (1000 * 1000) << " sec\n";
+        return end_time - start_time;
 }
-
 
 //TODO: Memory allocation and the other cuda specific memory operations. Need to look closer at some other resources.
 
@@ -201,25 +202,36 @@ int main()
                      0,0,9,8,0,0,0,3,6,
                      0,0,0,3,0,6,0,9,0}; //taken from Puzzles.h since that format won't work here
 	
+	int originalTwo[81] = {1,0,0,4,0,0,2,0,9,
+				0,0,7,0,0,0,0,0,0,
+				5,8,9,0,0,0,1,0,0,
+				0,0,0,0,0,0,3,9,0,
+				7,0,0,0,0,1,5,0,0,
+				0,4,0,6,0,0,0,0,2,
+				9,6,0,0,5,0,0,0,0,
+				0,0,5,0,0,8,0,0,0,
+				3,7,0,0,2,0,9,6,0};	
 	int* puzzle = (int*)malloc(81*sizeof(int));
 	
 	//Initializing data on CPU
 	int i;
 	for(i = 0; i < 81; i++)
 	{
-		puzzle[i] = original[i];
+		puzzle[i] = originalTwo[i];
 	}
 	
-
-
+	//int* test = (int*)malloc(81*sizeof(int));
+	//test = puzzle;
+	
 	//GPU implementation
 
         int* h_puzzle = (int*)malloc(81*sizeof(int)); //h is for host vars
 	int* h_output = (int*)malloc(sizeof(int)); 
-	h_output = 0;
 	int* m_output; //m vars will deal with memory
 	int* m_puzzle;
-	
+        int test_output = 0;
+        h_output = &test_output;
+
 	long long GPU_total_start = start_timer(); //taken from what I did in assignment1
 	
 	cudaMalloc((void**) &m_puzzle, 81*sizeof(int));
@@ -229,7 +241,7 @@ int main()
 	cudaMemcpy(m_output, h_output, sizeof(int), cudaMemcpyHostToDevice);
 	
         // warning : Stack size for entry function '_Z14solve_parallelPiS_' cannot be statically $
-        size_t stack = 30000;
+        size_t stack = 12345;
         cudaDeviceSetLimit(cudaLimitStackSize, stack);
 	solve_parallel<<<1, 9>>>(m_puzzle, m_output); //1block, 9threads
 	cudaDeviceSynchronize();
@@ -238,21 +250,28 @@ int main()
 	cudaMemcpy(h_puzzle, m_puzzle, 81*sizeof(int), cudaMemcpyDeviceToHost);
 	cudaMemcpy(h_output, m_output, sizeof(int), cudaMemcpyDeviceToHost);
 
-	long long GPU_total_time = stop_timer(GPU_total_start, "\nTotal time: ");
+	long long GPU_total_time = stop_timer(GPU_total_start, "\nTotal time");
 
 	if(*h_output == 1)
 	{
 		cout << "Puzzle Solved\n";
 	}
-	else if(*h_output == 0)
+	else
 	{
 		cout << "Puzzle Not Solved\n";
 	}
 	
 	display(h_puzzle);
-
+/*
 	free(h_puzzle);
 	free(h_output);
+	free(m_puzzle);
+	free(m_output);
+	cudaFree(h_puzzle);
+	cudaFree(h_output);
+	cudaFree(m_puzzle);
+	cudaFree(m_output);
+*/
 	return 0;
 }
 /*
@@ -315,13 +334,3 @@ int main()
 	display(puzzle);
 	GPU_totalTime = (clock() - GPU_start) / (double) CLOCKS_PER_SEC;
 	cout << "\nTime: " << GPU_totalTime << " seconds\n";*/	
-
-
-
-
-
-
-
-
-
-
